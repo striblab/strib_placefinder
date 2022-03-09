@@ -6,6 +6,7 @@ import * as jq from 'jquery';
 import * as mapboxgl from 'mapbox-gl';
 import * as MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
+import * as turf from '@turf/turf';
 
 let center = [-93.183629, 44.970970];
 let mcenter = [-93.183629, 44.970970];
@@ -43,8 +44,36 @@ const geocoder = new MapboxGeocoder({
 
 document.getElementById('geocoder').appendChild(geocoder.onAdd(map));
 
+
+/********** GEOCODER DISTRICT LOCATION RETURN **********/
+  var geoPoint;
+  var neighborhood;
+
+  function searchWithin(layer, point) {
+    var polygon;
+    for (var i=0; i < layer.features.length; i++) {
+      polygon = turf.multiPolygon(layer.features[i].geometry.coordinates);
+      var test = turf.booleanPointInPolygon(point, polygon);
+      if (test == true) { return layer.features[i].properties.Name; }
+    }
+    return 'X';
+  }
+
   geocoder.on('result', (event) => {
-    jq("#resultC").css('visibility','visible');
+    if (event.result.center[0] != null) {
+      geoPoint = [event.result.center[0], event.result.center[1]];
+      neighborhood = searchWithin(minneapolis, geoPoint);
+      if (neighborhood == "X") { 
+        neighborhood = searchWithin(stpaul, geoPoint); 
+      }
+      if (neighborhood != "X") { 
+        jq("#resultC").html('That location is centered within the <strong>' + neighborhood + '</strong> neighborhood');
+        jq("#resultC").css('visibility','visible');
+      } else {
+        jq("#resultC").html("Location not found within Minneapolis or St. Paul");
+        jq("#resultC").css('visibility','visible');
+      }
+    } 
   });
   geocoder.on('clear', (event) => {
     jq("#resultC").css('visibility','hidden');
@@ -231,5 +260,7 @@ jq(document).ready(function() {
 </script>
 
 <div id="geocoder" class="geocoder"></div>
+
+<div class="results" id="resultC">&nbsp;</div>
 
 <div class="map" id="map"></div>
